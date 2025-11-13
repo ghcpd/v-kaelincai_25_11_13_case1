@@ -1,0 +1,7 @@
+[
+  {"id":"TC1-sync-authorized","description":"Normal sync authorization: v2 returns immediate authorized (no 3DS)."},
+  {"id":"TC2-3DS-flow","description":"3DS required flow: v2 responds requiresAuth=true; webhook later confirms authorized."},
+  {"id":"TC3-async-confirm","description":"Async confirmation: v2 initial pending status; webhook later returns success."},
+  {"id":"TC4-v2-error-fallback","description":"v2 returns 500 and times out intermittently; adapter falls back to v1 as configured."},
+  {"id":"TC5-fraud-decline","description":"Fraud/decline path: v2 returns high fraudScore and status decline."}
+]

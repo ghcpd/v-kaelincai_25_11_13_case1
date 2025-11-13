@@ -1,0 +1,37 @@
+[
+  {
+    "id": "TC1-sync-authorized",
+    "description": "Normal sync authorization: v2 returns immediate authorized (no 3DS).",
+    "input": {"orderId": "O123", "amount": 1000, "paymentMethod": "card", "currency": "USD", "countryCode": "US", "threeDS": null},
+    "mock": {"v2": {"mode": "sync", "status": "authorized", "fraudScore": 12, "requiresAuth": false}},
+    "expected": {"final_status": "authorized", "transactionId": "T567", "fraudScore": 12}
+  },
+  {
+    "id": "TC2-3DS-flow",
+    "description": "3DS required flow: v2 responds requiresAuth=true; webhook later confirms authorized.",
+    "input": {"orderId": "O124", "amount": 1500, "paymentMethod": "card", "currency": "USD", "countryCode": "US", "threeDS": null},
+    "mock": {"v2": {"mode": "requiresAuth", "initial_status": "pending_auth", "transactionId": "T890", "final_webhook": {"status": "authorized", "fraudScore": 8}}},
+    "expected": {"final_status": "authorized", "transactionId": "T890", "fraudScore": 8}
+  },
+  {
+    "id": "TC3-async-confirm",
+    "description": "Async confirmation: v2 initial pending status; webhook later returns success.",
+    "input": {"orderId": "O125", "amount": 2000, "paymentMethod": "card", "currency": "EUR", "countryCode": "DE", "threeDS": null},
+    "mock": {"v2": {"mode": "async_pending", "initial_status": "pending", "transactionId": "T901", "final_webhook": {"status": "authorized", "fraudScore": 4}, "delay_seconds": 2}},
+    "expected": {"final_status": "authorized", "transactionId": "T901", "fraudScore": 4}
+  },
+  {
+    "id": "TC4-v2-error-fallback",
+    "description": "v2 returns 500 and times out intermittently; adapter falls back to v1 as configured.",
+    "input": {"orderId": "O126", "amount": 500, "paymentMethod": "card", "currency": "USD", "countryCode": "US", "threeDS": null},
+    "mock": {"v2": {"mode": "error", "status_code": 500, "timeout": true}, "v1": {"mode": "sync", "status": "authorized"}},
+    "expected": {"final_status": "authorized", "transactionId": "V1-T-123", "fallback_used": true}
+  },
+  {
+    "id": "TC5-fraud-decline",
+    "description": "Fraud/decline path: v2 returns high fraudScore and status decline; ensure proper handling and logging.",
+    "input": {"orderId": "O127", "amount": 750, "paymentMethod": "card", "currency": "USD", "countryCode": "US", "threeDS": null},
+    "mock": {"v2": {"mode": "sync", "status": "declined", "fraudScore": 88}},
+    "expected": {"final_status": "declined", "transactionId": "T999", "fraudScore": 88}
+  }
+]
