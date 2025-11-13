@@ -1,0 +1,32 @@
+{
+  "sync_authorized_v2": {
+    "status": "authorized",
+    "transaction_id": "T567",
+    "fraud_score": 12,
+    "notes": "Synchronous v2 response records transaction and fraud data."
+  },
+  "3ds_required_flow": {
+    "status": "authorized",
+    "transaction_id": "T890",
+    "fraud_score": 8,
+    "notes": "3DS path completes after webhook confirms."
+  },
+  "async_confirmation": {
+    "status": "authorized",
+    "transaction_id": "T999",
+    "fraud_score": 9,
+    "notes": "Pending response upgraded after async webhook."
+  },
+  "v2_timeout_fallback": {
+    "status": "authorized",
+    "transaction_id": "V1-TX-FALLBACK",
+    "fraud_score": null,
+    "notes": "Fallback to legacy endpoint captured final state."
+  },
+  "fraud_decline": {
+    "status": "declined",
+    "transaction_id": "T666",
+    "fraud_score": 92,
+    "notes": "High fraud score prevents completion."
+  }
+}
