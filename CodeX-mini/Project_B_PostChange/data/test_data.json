@@ -1,0 +1,227 @@
+[
+  {
+    "test_id": "sync_authorized_v2",
+    "description": "Normal synchronous authorization when v2 responds success with fraud score.",
+    "input": {
+      "orderId": "O_SYNC_001",
+      "amount": 1000,
+      "currency": "USD",
+      "countryCode": "US",
+      "paymentMethod": "card",
+      "3DS_token": null
+    },
+    "mock_v1": {
+      "status_code": 200,
+      "response": {
+        "success": true,
+        "transactionId": "V1-TX-0001"
+      }
+    },
+    "mock_v2": {
+      "status_code": 200,
+      "response": {
+        "transactionId": "T567",
+        "fraudScore": 12,
+        "requiresAuth": false,
+        "status": "authorized"
+      },
+      "delay": 0
+    },
+    "expected_pre": {
+      "status": "authorized",
+      "transaction_id": "V1-TX-0001",
+      "assertion": "Pre-change service succeeds with v1 success boolean."
+    },
+    "expected_post": {
+      "status": "authorized",
+      "transaction_id": "T567",
+      "fraud_score": 12,
+      "webhook_received": false,
+      "upstream": "v2",
+      "assertion": "Post-change service stores transactionId/fraudScore from v2."
+    }
+  },
+  {
+    "test_id": "3ds_required_flow",
+    "description": "v2 requires 3DS authentication and final webhook confirms.",
+    "input": {
+      "orderId": "O_3DS_002",
+      "amount": 5400,
+      "currency": "EUR",
+      "countryCode": "DE",
+      "paymentMethod": "card",
+      "3DS_token": "challenge-123"
+    },
+    "mock_v1": {
+      "status_code": 200,
+      "response": {
+        "success": true,
+        "transactionId": "V1-TX-3DS"
+      }
+    },
+    "mock_v2": {
+      "status_code": 200,
+      "response": {
+        "transactionId": "T890",
+        "fraudScore": 30,
+        "requiresAuth": true,
+        "status": "pending_auth"
+      },
+      "delay": 0,
+      "webhook": {
+        "event": {
+          "transactionId": "T890",
+          "status": "authorized",
+          "fraudScore": 8
+        },
+        "delay": 1,
+        "requiresAuth": true
+      }
+    },
+    "expected_pre": {
+      "status": "authorized",
+      "transaction_id": "V1-TX-3DS",
+      "assertion": "Pre-change service ignores 3DS and relies on v1."
+    },
+    "expected_post": {
+      "status": "authorized",
+      "transaction_id": "T890",
+      "fraud_score": 8,
+      "webhook_received": true,
+      "requires_auth": true,
+      "upstream": "v2",
+      "assertion": "Post-change service waits for webhook and saves final status."
+    }
+  },
+  {
+    "test_id": "async_confirmation",
+    "description": "v2 returns pending status followed by async webhook resolution (no 3DS).",
+    "input": {
+      "orderId": "O_ASYNC_003",
+      "amount": 7800,
+      "currency": "CAD",
+      "countryCode": "CA",
+      "paymentMethod": "card",
+      "3DS_token": null
+    },
+    "mock_v1": {
+      "status_code": 200,
+      "response": {
+        "success": true,
+        "transactionId": "V1-TX-ASYNC"
+      }
+    },
+    "mock_v2": {
+      "status_code": 200,
+      "response": {
+        "transactionId": "T999",
+        "fraudScore": 15,
+        "requiresAuth": false,
+        "status": "pending_async"
+      },
+      "delay": 0,
+      "webhook": {
+        "event": {
+          "transactionId": "T999",
+          "status": "authorized",
+          "fraudScore": 9
+        },
+        "delay": 2,
+        "requiresAuth": false
+      }
+    },
+    "expected_pre": {
+      "status": "authorized",
+      "transaction_id": "V1-TX-ASYNC",
+      "assertion": "Pre-change service always resolves instantly."
+    },
+    "expected_post": {
+      "status": "authorized",
+      "transaction_id": "T999",
+      "fraud_score": 9,
+      "webhook_received": true,
+      "upstream": "v2",
+      "assertion": "Post-change service updates settlement after webhook."
+    }
+  },
+  {
+    "test_id": "v2_timeout_fallback",
+    "description": "v2 times out or returns server error and service falls back to v1.",
+    "input": {
+      "orderId": "O_FALLBACK_004",
+      "amount": 1200,
+      "currency": "GBP",
+      "countryCode": "GB",
+      "paymentMethod": "card",
+      "3DS_token": null
+    },
+    "mock_v1": {
+      "status_code": 200,
+      "response": {
+        "success": true,
+        "transactionId": "V1-TX-FALLBACK"
+      }
+    },
+    "mock_v2": {
+      "status_code": 500,
+      "response": {
+        "error": "gateway_error"
+      },
+      "delay": 5
+    },
+    "expected_pre": {
+      "status": "authorized",
+      "transaction_id": "V1-TX-FALLBACK",
+      "assertion": "Legacy service continues to rely on v1."
+    },
+    "expected_post": {
+      "status": "authorized",
+      "transaction_id": "V1-TX-FALLBACK",
+      "fraud_score": null,
+      "webhook_received": false,
+      "upstream": "v1",
+      "assertion": "Fallback to v1 kicks in when v2 fails."
+    }
+  },
+  {
+    "test_id": "fraud_decline",
+    "description": "v2 flags high fraud score and declines.",
+    "input": {
+      "orderId": "O_FRAUD_005",
+      "amount": 4500,
+      "currency": "USD",
+      "countryCode": "US",
+      "paymentMethod": "card",
+      "3DS_token": null
+    },
+    "mock_v1": {
+      "status_code": 200,
+      "response": {
+        "success": false
+      }
+    },
+    "mock_v2": {
+      "status_code": 200,
+      "response": {
+        "transactionId": "T666",
+        "fraudScore": 92,
+        "requiresAuth": false,
+        "status": "declined"
+      },
+      "delay": 0
+    },
+    "expected_pre": {
+      "status": "declined",
+      "transaction_id": null,
+      "assertion": "Pre-change service surfaces decline from v1."
+    },
+    "expected_post": {
+      "status": "declined",
+      "transaction_id": "T666",
+      "fraud_score": 92,
+      "webhook_received": false,
+      "upstream": "v2",
+      "assertion": "Post-change service records fraud and decline."
+    }
+  }
+]
