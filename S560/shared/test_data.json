@@ -1,0 +1,37 @@
+[
+  {
+    "test_id": "T1-sync-authorized",
+    "description": "Normal sync authorization — v2 returns immediate authorized",
+    "input": {"orderId": "O1", "amount": 1000, "paymentMethod": "card", "currency": "USD", "countryCode": "US"},
+    "mock_behavior": {"v2_mode": "sync_authorized", "delay": 0},
+    "expected_final": {"status": "authorized", "transactionId_found": true}
+  },
+  {
+    "test_id": "T2-3ds-required",
+    "description": "3DS required flow — v2 responds requiresAuth=true and final webhook confirms",
+    "input": {"orderId": "O2", "amount": 2000, "paymentMethod": "card", "currency": "USD", "countryCode": "US"},
+    "mock_behavior": {"v2_mode": "requires_3ds", "delay_webhook_seconds": 1},
+    "expected_final": {"status": "authorized", "requiresAuth": true, "transactionId_found": true}
+  },
+  {
+    "test_id": "T3-async-confirmation",
+    "description": "Async confirmation — v2 initial pending status; webhook later returns success",
+    "input": {"orderId": "O3", "amount": 500, "paymentMethod": "card", "currency": "EUR", "countryCode": "DE"},
+    "mock_behavior": {"v2_mode": "pending_then_webhook", "delay_webhook_seconds": 1},
+    "expected_final": {"status": "authorized", "transactionId_found": true}
+  },
+  {
+    "test_id": "T4-v2-error-fallback",
+    "description": "v2 errors/timeouts — v2 returns 500; adapter should fallback to v1 if configured",
+    "input": {"orderId": "O4", "amount": 400, "paymentMethod": "card", "currency": "USD", "countryCode": "US"},
+    "mock_behavior": {"v2_mode": "error_500", "v1_mode": "sync_authorized"},
+    "expected_final": {"status": "authorized", "transactionId_found": false}
+  },
+  {
+    "test_id": "T5-fraud-decline",
+    "description": "Fraud/decline path — v2 returns high fraudScore and status decline",
+    "input": {"orderId": "O5", "amount": 100000, "paymentMethod": "card", "currency": "USD", "countryCode": "US"},
+    "mock_behavior": {"v2_mode": "decline_fraud"},
+    "expected_final": {"status": "declined", "transactionId_found": true}
+  }
+]
