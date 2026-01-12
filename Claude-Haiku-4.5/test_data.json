@@ -1,0 +1,218 @@
+{
+  "test_cases": [
+    {
+      "test_id": "TEST_001_SYNC_AUTH",
+      "description": "Normal sync authorization - v2 returns immediate authorized status (no 3DS required)",
+      "input": {
+        "orderId": "O001",
+        "amount": 10000,
+        "paymentMethod": "card",
+        "currency": "USD",
+        "countryCode": "US"
+      },
+      "mock_v1_config": {
+        "should_respond": true,
+        "response_delay_ms": 100,
+        "status_code": 200,
+        "response": {
+          "success": true
+        }
+      },
+      "mock_v2_config": {
+        "should_respond": true,
+        "response_delay_ms": 150,
+        "status_code": 200,
+        "response": {
+          "transactionId": "TXN_001_SYNC",
+          "fraudScore": 5,
+          "requiresAuth": false,
+          "status": "authorized"
+        },
+        "webhook": null
+      },
+      "expected_outcome": {
+        "project_a_status": "success",
+        "project_b_status": "authorized",
+        "project_b_transaction_id": "TXN_001_SYNC",
+        "project_b_fraud_score": 5,
+        "webhook_called": false,
+        "fallback_triggered": false
+      }
+    },
+    {
+      "test_id": "TEST_002_3DS_REQUIRED",
+      "description": "3DS required flow - v2 responds requiresAuth=true and later webhook confirms authorization",
+      "input": {
+        "orderId": "O002",
+        "amount": 50000,
+        "paymentMethod": "card",
+        "currency": "USD",
+        "countryCode": "GB"
+      },
+      "mock_v1_config": {
+        "should_respond": true,
+        "response_delay_ms": 100,
+        "status_code": 200,
+        "response": {
+          "success": true
+        }
+      },
+      "mock_v2_config": {
+        "should_respond": true,
+        "response_delay_ms": 100,
+        "status_code": 200,
+        "response": {
+          "transactionId": "TXN_002_3DS",
+          "fraudScore": 15,
+          "requiresAuth": true,
+          "status": "pending_auth",
+          "authUrl": "https://payment-gateway.example.com/3ds/TXN_002_3DS"
+        },
+        "webhook": {
+          "delay_ms": 2000,
+          "event": "payment.authorized",
+          "data": {
+            "transactionId": "TXN_002_3DS",
+            "status": "authorized",
+            "fraudScore": 12,
+            "timestamp": "2025-11-13T10:30:00Z"
+          }
+        }
+      },
+      "expected_outcome": {
+        "project_a_status": "success",
+        "project_b_status": "authorized",
+        "project_b_transaction_id": "TXN_002_3DS",
+        "project_b_fraud_score": 12,
+        "webhook_called": true,
+        "fallback_triggered": false
+      }
+    },
+    {
+      "test_id": "TEST_003_ASYNC_PENDING",
+      "description": "Async confirmation - v2 returns initial pending status, webhook later returns success",
+      "input": {
+        "orderId": "O003",
+        "amount": 25000,
+        "paymentMethod": "card",
+        "currency": "EUR",
+        "countryCode": "DE"
+      },
+      "mock_v1_config": {
+        "should_respond": true,
+        "response_delay_ms": 100,
+        "status_code": 200,
+        "response": {
+          "success": true
+        }
+      },
+      "mock_v2_config": {
+        "should_respond": true,
+        "response_delay_ms": 200,
+        "status_code": 202,
+        "response": {
+          "transactionId": "TXN_003_ASYNC",
+          "fraudScore": 8,
+          "requiresAuth": false,
+          "status": "pending_confirmation"
+        },
+        "webhook": {
+          "delay_ms": 3000,
+          "event": "payment.confirmed",
+          "data": {
+            "transactionId": "TXN_003_ASYNC",
+            "status": "authorized",
+            "fraudScore": 8,
+            "timestamp": "2025-11-13T10:32:00Z"
+          }
+        }
+      },
+      "expected_outcome": {
+        "project_a_status": "success",
+        "project_b_status": "authorized",
+        "project_b_transaction_id": "TXN_003_ASYNC",
+        "project_b_fraud_score": 8,
+        "webhook_called": true,
+        "fallback_triggered": false
+      }
+    },
+    {
+      "test_id": "TEST_004_V2_ERROR_FALLBACK",
+      "description": "v2 returns 500 error; adapter falls back to v1 per feature flag, v1 succeeds",
+      "input": {
+        "orderId": "O004",
+        "amount": 15000,
+        "paymentMethod": "card",
+        "currency": "USD",
+        "countryCode": "US"
+      },
+      "mock_v1_config": {
+        "should_respond": true,
+        "response_delay_ms": 100,
+        "status_code": 200,
+        "response": {
+          "success": true
+        }
+      },
+      "mock_v2_config": {
+        "should_respond": true,
+        "response_delay_ms": 50,
+        "status_code": 500,
+        "response": {
+          "error": "Internal server error",
+          "message": "Payment gateway temporarily unavailable"
+        },
+        "webhook": null
+      },
+      "expected_outcome": {
+        "project_a_status": "success",
+        "project_b_status": "fallback_success",
+        "project_b_transaction_id": null,
+        "project_b_fallback_reason": "v2_error_500",
+        "webhook_called": false,
+        "fallback_triggered": true
+      }
+    },
+    {
+      "test_id": "TEST_005_FRAUD_DECLINE",
+      "description": "Fraud detection - v2 returns high fraudScore and decline status; transaction rejected",
+      "input": {
+        "orderId": "O005",
+        "amount": 100000,
+        "paymentMethod": "card",
+        "currency": "USD",
+        "countryCode": "RU"
+      },
+      "mock_v1_config": {
+        "should_respond": true,
+        "response_delay_ms": 100,
+        "status_code": 200,
+        "response": {
+          "success": false
+        }
+      },
+      "mock_v2_config": {
+        "should_respond": true,
+        "response_delay_ms": 100,
+        "status_code": 200,
+        "response": {
+          "transactionId": "TXN_005_FRAUD",
+          "fraudScore": 92,
+          "requiresAuth": false,
+          "status": "declined",
+          "declineReason": "high_fraud_risk"
+        },
+        "webhook": null
+      },
+      "expected_outcome": {
+        "project_a_status": "failed",
+        "project_b_status": "declined",
+        "project_b_transaction_id": "TXN_005_FRAUD",
+        "project_b_fraud_score": 92,
+        "project_b_decline_reason": "high_fraud_risk",
+        "webhook_called": false,
+        "fallback_triggered": false
+      }
+    }
+  ]
+}
